@@ -567,6 +567,7 @@ impl<E: ClientExt, C: ClientConnector> ClientActor<E, C> {
                         match self.client.on_close(frame).await? {
                             ClientCloseMode::Reconnect => {
                                 std::mem::drop(socket);
+                                sleep(self.config.reconnect_interval).await;
                                 let Some(socket) = client_connect(
                                     self.config.max_reconnect_attempts,
                                     &self.config,
