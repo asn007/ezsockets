@@ -538,6 +538,7 @@ impl<E: ClientExt, C: ClientConnector> ClientActor<E, C> {
                     // C) An IO error means the connection closed unexpectedly, so we can try to reconnect when
                     //    the stream fails.
                     tracing::warn!("recoverable connection error detected, attempting recovery...");
+                    return Ok(None);
                 }
                 Err(_) if !closed_self => {
                     return Err(Error::from("unexpected sink error, aborting client actor"))
