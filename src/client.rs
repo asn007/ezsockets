@@ -494,7 +494,7 @@ impl<E: ClientExt, C: ClientConnector> ClientActor<E, C> {
                     let Ok(inmessage) = res else {
                         break;
                     };
-                    socket_shuttle = Self::handle_outgoing_msg(socket, inmessage).await?;
+                    socket_shuttle = self.handle_outgoing_msg(socket, inmessage).await?;
                 }
                 res = self.client_call_receiver.recv().fuse() => {
                     let Ok(call) = res else {
@@ -513,6 +513,7 @@ impl<E: ClientExt, C: ClientConnector> ClientActor<E, C> {
     }
 
     async fn handle_outgoing_msg(
+        &mut self,
         mut socket: Socket,
         inmessage: InMessage,
     ) -> Result<Option<Socket>, Error> {
@@ -539,7 +540,25 @@ impl<E: ClientExt, C: ClientConnector> ClientActor<E, C> {
                     // C) An IO error means the connection closed unexpectedly, so we can try to reconnect when
                     //    the stream fails.
                     tracing::warn!("recoverable connection error detected, attempting recovery...");
-                    return Ok(None);
+                    match self.client.on_close(None).await? {
+                        ClientCloseMode::Reconnect => {
+                            std::mem::drop(socket);
+                            sleep(self.config.reconnect_interval).await;
+                            let Some(socket) = client_connect(
+                                self.config.max_reconnect_attempts,
+                                &self.config,
+                                &self.client_connector,
+                                &mut self.to_socket_receiver,
+                                &mut self.client,
+                            )
+                            .await?
+                            else {
+                                return Ok(None);
+                            };
+                            return Ok(Some(socket));
+                        }
+                        ClientCloseMode::Close => return Ok(None),
+                    }
                 }
                 Err(_) if !closed_self => {
                     return Err(Error::from("unexpected sink error, aborting client actor"))
