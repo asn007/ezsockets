@@ -529,7 +529,8 @@ impl<E: ClientExt, C: ClientConnector> ClientActor<E, C> {
                 Err(WSError::ConnectionClosed)
                 | Err(WSError::AlreadyClosed)
                 | Err(WSError::Io(_))
-                | Err(WSError::Tls(_)) => {
+                | Err(WSError::Tls(_))
+                | Err(WSError::Protocol(_)) => {
                     // either:
                     // A) The connection was closed via the close protocol, so we will allow the stream to
                     //    handle it.
